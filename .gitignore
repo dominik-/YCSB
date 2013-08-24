@@ -1,1 +1,18 @@
-/elasticsearch/target/
+*.class
+bin/
+# Package Files #
+*.jar
+*.war
+*.ear
+*.zip
+# eclipse files
+.project
+.settings
+.classpath
+.checkstyle
+#maven
+target
+#pom.xml
+#linux modified
+*~
+

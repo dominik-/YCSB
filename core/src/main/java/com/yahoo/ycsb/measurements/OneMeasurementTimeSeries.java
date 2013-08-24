@@ -50,7 +50,13 @@ public class OneMeasurementTimeSeries extends OneMeasurement
 	public static final String GRANULARITY="timeseries.granularity";
 	
 	public static final String GRANULARITY_DEFAULT="1000";
-	
+	public static final String BUCKETS="histogram.buckets";
+	public static final String BUCKETS_DEFAULT="10000";
+
+	int _buckets;
+	int[] histogram;
+	int histogramoverflow;
+
 	int _granularity;
 	Vector<SeriesUnit> _measurements;
 	
@@ -76,6 +82,9 @@ public class OneMeasurementTimeSeries extends OneMeasurement
 		_granularity=Integer.parseInt(props.getProperty(GRANULARITY,GRANULARITY_DEFAULT));
 		_measurements=new Vector<SeriesUnit>();
 		returncodes=new HashMap<Integer,int[]>();
+		_buckets=Integer.parseInt(props.getProperty(BUCKETS, BUCKETS_DEFAULT));
+		histogram=new int[_buckets];
+		histogramoverflow=0;
 	}
 	
 	void checkEndOfUnit(boolean forceend)
@@ -106,7 +115,14 @@ public class OneMeasurementTimeSeries extends OneMeasurement
 	public void measure(int latency) 
 	{
 		checkEndOfUnit(false);
-		
+		if (latency/1000>=_buckets)
+		{
+			histogramoverflow++;
+		}
+		else
+		{
+			histogram[latency/1000]++;
+		}
 		count++;
 		sum+=latency;
 		totallatency+=latency;
@@ -135,6 +151,23 @@ public class OneMeasurementTimeSeries extends OneMeasurement
     exporter.write(getName(), "AverageLatency(us)", (((double)totallatency)/((double)operations)));
     exporter.write(getName(), "MinLatency(us)", min);
     exporter.write(getName(), "MaxLatency(us)", max);
+    
+    int opcounter=0;
+    boolean done95th=false;
+    for (int i=0; i<_buckets; i++)
+    {
+      opcounter+=histogram[i];
+      if ( (!done95th) && (((double)opcounter)/((double)operations)>=0.95) )
+      {
+        exporter.write(getName(), "95thPercentileLatency(ms)", i);
+        done95th=true;
+      }
+      if (((double)opcounter)/((double)operations)>=0.99)
+      {
+        exporter.write(getName(), "99thPercentileLatency(ms)", i);
+        break;
+      }
+    }
 
     //TODO: 95th and 99th percentile latency
 
